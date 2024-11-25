@@ -369,7 +369,8 @@ function read_xtc_headers(file)
     times = Float32[]
     steps = Int32[]
     offsets = UInt64[]
-    local natoms
+    local natoms = 0
+    seekstart(file)
     while ! eof(file)
         natoms, step, time, offset = read_xtc_header(file, skip_to_next=true)
         push!(times, time)
@@ -417,7 +418,7 @@ end
 function write_frame(file::XtcFile, step::Integer, time::Real, box::AbstractMatrix{S}, 
                          coords::AbstractMatrix{T}) where {S, T <: Real}
     seekend(file.file)
-    # pos = position(file.file)
+    pos = position(file.file)
     natoms::Int32 = size(coords)[2]
     write(file.file, hton(Int32(1995)))
     write(file.file, hton(natoms))
@@ -433,6 +434,13 @@ function write_frame(file::XtcFile, step::Integer, time::Real, box::AbstractMatr
     # end
     result = write_xtc_atoms(file.file, 1000.0, coords)
     flush(file.file)
+
+    push!(file.offsets, pos+16)     # offset is shifted by 16 bytes of the header 
+    push!(file.steps, step)
+    push!(file.time, time)
+    file.natoms = size(coords, 2)
+    file.nframes += 1
+    return result
 end
 
 function write_xtc_atoms(file::IOStream, precision::Real, coords::AbstractMatrix{T}) where {T <: Real}
