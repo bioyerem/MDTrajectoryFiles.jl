@@ -433,13 +433,18 @@ function write_frame(file::XtcFile, step::Integer, time::Real, box::AbstractMatr
     #     @code_warntype write_xtc_atoms(file.file, 1000.0, coords)
     # end
     result = write_xtc_atoms(file.file, 1000.0, coords)
+    if result
+        push!(file.offsets, pos+16)     # offset is shifted by 16 bytes of the header 
+        push!(file.steps, step)
+        push!(file.time, time)
+        file.natoms = size(coords, 2)
+        file.nframes += 1
+    else
+        # at this point the file is in an inconsistent (partially written) state
+        # need to truncate it to the last complete frame
+        truncate(file.file, pos)
+    end
     flush(file.file)
-
-    push!(file.offsets, pos+16)     # offset is shifted by 16 bytes of the header 
-    push!(file.steps, step)
-    push!(file.time, time)
-    file.natoms = size(coords, 2)
-    file.nframes += 1
     return result
 end
 
